@@ -379,6 +379,7 @@ struct BufferDescriptor {
 
   cl_mem buffer{nullptr};
   MemoryLayout layout{MemoryLayout::kBuffer1D};
+  size_t hash{0};
 };
 }  // namespace cl
 

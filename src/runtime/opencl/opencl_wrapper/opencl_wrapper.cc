@@ -142,6 +142,7 @@ using f_clGetProgramBuildInfo = cl_int (*)(cl_program, cl_device_id, cl_program_
 using f_clCreateKernel = cl_kernel (*)(cl_program, const char*, cl_int*);
 using f_clReleaseKernel = cl_int (*)(cl_kernel);
 using f_clSetKernelArg = cl_int (*)(cl_kernel, cl_uint, size_t, const void*);
+using f_clGetMemObjectInfo = cl_int (*)(cl_mem, cl_mem_info, size_t, void*, size_t*);
 using f_clWaitForEvents = cl_int (*)(cl_uint, const cl_event*);
 using f_clCreateUserEvent = cl_event (*)(cl_context, cl_int*);
 using f_clGetEventProfilingInfo = cl_int (*)(cl_event, cl_profiling_info, size_t, void*, size_t*);
@@ -379,6 +380,21 @@ cl_int clSetKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, cons
   auto func = (f_clSetKernelArg)lib.getOpenCLFunction("clSetKernelArg");
   if (func) {
     return func(kernel, arg_index, arg_size, arg_value);
+  } else {
+    return CL_INVALID_PLATFORM;
+  }
+}
+
+
+cl_int clGetMemObjectInfo(cl_mem memobj,
+    cl_mem_info param_name,
+    size_t param_value_size,
+    void* param_value,
+    size_t* param_value_size_ret) {
+  auto& lib = LibOpenCLWrapper::getInstance();
+  auto func = (f_clGetMemObjectInfo)lib.getOpenCLFunction("clGetMemObjectInfo");
+  if (func) {
+    return func(memobj, param_name, param_value_size, param_value, param_value_size_ret);
   } else {
     return CL_INVALID_PLATFORM;
   }

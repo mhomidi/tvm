@@ -29,9 +29,26 @@
 
 #include "opencl_common.h"
 
+
+#include "../shared_gpu/opencl_client.h"
+
 namespace tvm {
 namespace runtime {
 namespace cl {
+
+void showData(float *data, size_t size)
+{
+  for (size_t i = 0; i < size; i++)
+  {
+    // char *c1 = (char*)(&data[i]);
+    // char *c2 = (char*)(&data[i]) + 1;
+    // char *c3 = (char*)(&data[i]) + 2;
+    // char *c4 = (char*)(&data[i]) + 3;
+    // LOG(WARNING) << i << ": " << *c1 << *c2 << *c3 << *c4;
+    LOG(WARNING) << i << ": " << data[i];
+  }
+  
+}
 
 std::string GetPlatformInfo(cl_platform_id pid, cl_platform_info param_name);
 std::string GetDeviceInfo(cl_device_id pid, cl_device_info param_name);
@@ -205,6 +222,12 @@ void* OpenCLWorkspace::AllocDataSpace(Device dev, size_t size, size_t alignment,
   desc->buffer = clCreateBuffer(this->context, CL_MEM_READ_WRITE, size, nullptr, &err_code);
   desc->layout = cl::BufferDescriptor::MemoryLayout::kBuffer1D;
   OPENCL_CHECK_ERROR(err_code);
+  {
+      tvm::sharedGPU::Client* client = new tvm::sharedGPU::Client();
+      client->SendCreateBufferRequest((void *) &(desc->buffer), size);
+      client->CloseConnection();
+      desc->hash = client->getHash((void *) &(desc->buffer));
+  }
   return desc;
 }
 
@@ -297,6 +320,7 @@ void OpenCLWorkspace::CopyDataFromTo(DLTensor* from, DLTensor* to, TVMStreamHand
     const auto* from_desc = static_cast<const cl::BufferDescriptor*>(from->data);
     switch (from_desc->layout) {
       case cl::BufferDescriptor::MemoryLayout::kBuffer1D:
+        LOG(WARNING) << "clEnqueueReadBuffer: " << from_desc->hash << ": " << nbytes / sizeof(float);
         OPENCL_CALL(clEnqueueReadBuffer(
             this->GetQueue(from->device), from_desc->buffer, CL_FALSE, from->byte_offset, nbytes,
             static_cast<char*>(to->data) + to->byte_offset, 0, nullptr, nullptr));
@@ -319,6 +343,14 @@ void OpenCLWorkspace::CopyDataFromTo(DLTensor* from, DLTensor* to, TVMStreamHand
     auto* to_desc = static_cast<cl::BufferDescriptor*>(to->data);
     switch (to_desc->layout) {
       case cl::BufferDescriptor::MemoryLayout::kBuffer1D:
+        LOG(WARNING) << to_desc->hash << ": " << nbytes / sizeof(float);
+        {
+          tvm::sharedGPU::Client* client = new tvm::sharedGPU::Client();
+          client->SendBufferData(to_desc->hash, from->data, nbytes);
+          client->CloseConnection();
+          if (nbytes / sizeof(float) == 128)
+            showData(static_cast<float*>(from->data), nbytes / sizeof(float));
+        }
         OPENCL_CALL(clEnqueueWriteBuffer(
             this->GetQueue(to->device), to_desc->buffer, CL_FALSE, to->byte_offset, nbytes,
             static_cast<const char*>(from->data) + from->byte_offset, 0, nullptr, nullptr));

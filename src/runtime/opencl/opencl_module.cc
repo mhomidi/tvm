@@ -25,12 +25,22 @@
 #include <dmlc/memory_io.h>
 #include <tvm/runtime/registry.h>
 
+#include <fstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 #include "../source_utils.h"
 #include "opencl_common.h"
+
+#include "../shared_gpu/opencl_client.h"
+
+void writeToFile(std::string kernel_source) {
+  std::ofstream out;
+  out.open("/tmp/kernels.cl", std::ios::app);
+  out << std::endl << kernel_source << std::endl;
+  out.close();
+}
 
 namespace tvm {
 namespace runtime {
@@ -62,15 +72,33 @@ class OpenCLWrappedFunc {
     if (kernel == nullptr || e.version != entry_.version) {
       kernel = m_->InstallKernel(w_, t, func_name_, entry_);
     }
+    // LOG(WARNING) << func_name_ << ": " << arg_size_.size();
     // setup arguments.
+
     for (cl_uint i = 0; i < arg_size_.size(); ++i) {
       void* arg = nullptr;
+      // size_t hashArg = 0;
       if (args.type_codes[i] == DLDataTypeCode::kDLOpaqueHandle) {
         arg = static_cast<cl::BufferDescriptor*>(void_args[i])->buffer;
+        // hashArg = static_cast<cl::BufferDescriptor*>(void_args[i])->hash;
       } else {
         arg = void_args[i];
       }
+      // cl_mem_object_type  argSize;
+      // size_t argSizeRet;
+      // OPENCL_CALL(clGetMemObjectInfo(static_cast<cl::BufferDescriptor*>(void_args[i])->buffer,
+      //                   CL_MEM_TYPE,
+      //                   sizeof(cl_mem_object_type),
+      //                   &argSize,
+      //                   &argSizeRet));
       OPENCL_CALL(clSetKernelArg(kernel, i, arg_size_[i], arg));
+      LOG(WARNING) << (size_t)arg;
+
+      {
+        tvm::sharedGPU::Client* client = new tvm::sharedGPU::Client();
+        client->SendBufferSet(func_name_, (size_t)(static_cast<cl::BufferDescriptor*>(void_args[i])->buffer));
+        client->CloseConnection();
+      }
     }
     cl_command_queue queue = w_->GetQueue(t->device);
     ThreadWorkLoad wl = launch_param_config_.Extract(args);
@@ -78,8 +106,14 @@ class OpenCLWrappedFunc {
     for (cl_uint i = 0; i < work_dim; ++i) {
       wl.work_size[i] *= wl.work_size[i + 3];
     }
+    // LOG(WARNING) << work_dim << " " << wl.work_size[0];
     // launch kernel
-
+    {
+        tvm::sharedGPU::Client* client = new tvm::sharedGPU::Client();
+        client->SendWorkDim(func_name_, work_dim);
+        client->SendGlobalWorkSize(func_name_, wl.work_size);
+        client->CloseConnection();
+    }
     if (w_->IsProfiling(t->device)) {
       w_->GetEventQueue(t->device).resize(w_->GetEventQueue(t->device).size() + 1);
       OPENCL_CALL(clEnqueueNDRangeKernel(queue, kernel, work_dim, nullptr, wl.work_size,
@@ -143,6 +177,7 @@ PackedFunc OpenCLModuleNode::GetFunction(const std::string& name,
   const FunctionInfo& info = it->second;
   OpenCLWrappedFunc f;
   std::vector<size_t> arg_size(info.arg_types.size());
+  // LOG(WARNING) << "Kernel name in OpenCLModuleNode class: " << name;
   for (size_t i = 0; i < info.arg_types.size(); ++i) {
     DLDataType t = info.arg_types[i];
     ICHECK_EQ(t.lanes, 1U);
@@ -225,6 +260,21 @@ cl_kernel OpenCLModuleNode::InstallKernel(cl::OpenCLWorkspace* w, cl::OpenCLThre
       size_t len = parsed_kernels_[func_name].length();
       cl_int err;
       programs_[func_name][device_id] = clCreateProgramWithSource(w->context, 1, &s, &len, &err);
+      // LOG(WARNING) << std::endl
+      //              << std::endl
+      //              << "#############" << func_name << "###########" << std::endl
+      //              << s << std::endl
+      //              << std::endl
+      //              << "##############" << std::endl;
+      // writeToFile(parsed_kernels_[func_name]);
+    // if (func_name == "tvmgen_default_fused_nn_softmax_kernel2")
+    {
+      LOG(WARNING) << func_name << ": " << parsed_kernels_[func_name].size();
+      tvm::sharedGPU::Client* client = new tvm::sharedGPU::Client();
+      client->SendKernel(func_name, parsed_kernels_[func_name]);
+      client->CloseConnection();
+    }
+
       OPENCL_CHECK_ERROR(err);
     } else if (fmt_ == "xclbin" || fmt_ == "awsxclbin" || fmt_ == "aocx") {
       const unsigned char* s = (const unsigned char*)data_.c_str();

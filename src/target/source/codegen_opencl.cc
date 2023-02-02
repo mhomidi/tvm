@@ -87,7 +87,10 @@ void CodeGenOpenCL::InitFuncState(const PrimFunc& f) {
   }
 }
 
-void CodeGenOpenCL::PrintFuncPrefix() { stream << "__kernel void"; }
+void CodeGenOpenCL::PrintFuncPrefix() {
+  stream << "__kernel void";
+  // LOG(WARNING) << "Abbas agha";
+}
 
 void CodeGenOpenCL::PreFunctionBody(const PrimFunc& f) {
   for (Var arg : f->params) {
