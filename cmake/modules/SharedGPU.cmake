@@ -16,7 +16,15 @@
 # under the License.
 
 if (USE_SHARED_GPU)
-  message(WARNING "Build with Shared GPU")
+  message(STATUS "Build with Shared GPU")
   file_glob_append(RUNTIME_SHARED_GPU_SRCS src/runtime/shared_gpu/*.cc)
     list(APPEND RUNTIME_SRCS ${RUNTIME_SHARED_GPU_SRCS})
 endif(USE_SHARED_GPU)
+
+
+if (USE_GRPC)
+
+  add_definitions(-DWITH_GRPC=1)
+  file_glob_append(RUNTIME_GRPC_SRCS src/runtime/grpc/*.cc)
+  list(APPEND RUNTIME_SRCS ${RUNTIME_GRPC_SRCS})
+endif(USE_GRPC)

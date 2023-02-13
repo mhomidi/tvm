@@ -69,7 +69,7 @@ set(USE_AOCL OFF)
 #       time and trigger dynamic search and loading of OpenCL in runtime
 # - OFF: disable OpenCL
 # - /path/to/opencl-sdk: use specific path to opencl-sdk
-set(USE_OPENCL OFF)
+set(USE_OPENCL ON)
 
 # Whether enable Metal runtime
 set(USE_METAL OFF)
@@ -134,7 +134,11 @@ set(USE_MICRO_STANDALONE_RUNTIME OFF)
 # - OFF: disable llvm, note this will disable CPU codegen
 #        which is needed for most cases
 # - /path/to/llvm-config: enable specific LLVM when multiple llvm-dev is available.
-set(USE_LLVM OFF)
+set(USE_LLVM ON)
+
+set(USE_SHARED_GPU ON)
+
+set(USE_GRPC ON)
 
 #---------------------------------------------
 # Contrib libraries
@@ -339,11 +343,11 @@ set(USE_BNNS OFF)
 # - AUTO: auto set according to system information and feasibility
 # - ON: enable libbacktrace
 # - OFF: disable libbacktrace
-set(USE_LIBBACKTRACE AUTO)
+set(USE_LIBBACKTRACE ON)
 
 # Whether to install a signal handler to print a backtrace on segfault. This
 # may replace existing signal handlers specified by other libraries.
-set(BACKTRACE_ON_SEGFAULT OFF)
+set(BACKTRACE_ON_SEGFAULT ON)
 
 # Whether to build static libtvm_runtime.a, the default is to build the dynamic
 # version: libtvm_runtime.so.

@@ -27,28 +27,13 @@
 
 #include <sstream>
 
-#include "opencl_common.h"
-
-
+#include "../grpc/vortex_grpc_client.h"
 #include "../shared_gpu/opencl_client.h"
+#include "opencl_common.h"
 
 namespace tvm {
 namespace runtime {
 namespace cl {
-
-void showData(float *data, size_t size)
-{
-  for (size_t i = 0; i < size; i++)
-  {
-    // char *c1 = (char*)(&data[i]);
-    // char *c2 = (char*)(&data[i]) + 1;
-    // char *c3 = (char*)(&data[i]) + 2;
-    // char *c4 = (char*)(&data[i]) + 3;
-    // LOG(WARNING) << i << ": " << *c1 << *c2 << *c3 << *c4;
-    LOG(WARNING) << i << ": " << data[i];
-  }
-  
-}
 
 std::string GetPlatformInfo(cl_platform_id pid, cl_platform_info param_name);
 std::string GetDeviceInfo(cl_device_id pid, cl_device_info param_name);
@@ -222,12 +207,10 @@ void* OpenCLWorkspace::AllocDataSpace(Device dev, size_t size, size_t alignment,
   desc->buffer = clCreateBuffer(this->context, CL_MEM_READ_WRITE, size, nullptr, &err_code);
   desc->layout = cl::BufferDescriptor::MemoryLayout::kBuffer1D;
   OPENCL_CHECK_ERROR(err_code);
-  {
-      tvm::sharedGPU::Client* client = new tvm::sharedGPU::Client();
-      client->SendCreateBufferRequest((void *) &(desc->buffer), size);
-      client->CloseConnection();
-      desc->hash = client->getHash((void *) &(desc->buffer));
-  }
+#ifdef WITH_GRPC
+  tvm::vortexGRPC::Client* client = tvm::vortexGRPC::Client::getInstance();
+  client->CreateBuffer((size_t) & (desc->buffer), size);
+#endif
   return desc;
 }
 
@@ -320,11 +303,22 @@ void OpenCLWorkspace::CopyDataFromTo(DLTensor* from, DLTensor* to, TVMStreamHand
     const auto* from_desc = static_cast<const cl::BufferDescriptor*>(from->data);
     switch (from_desc->layout) {
       case cl::BufferDescriptor::MemoryLayout::kBuffer1D:
-        LOG(WARNING) << "clEnqueueReadBuffer: " << from_desc->hash << ": " << nbytes / sizeof(float);
+#ifdef WITH_GRPC
+      {
+        tvm::vortexGRPC::Client* client = tvm::vortexGRPC::Client::getInstance();
+        std::vector<float> mydata = client->GetBufferData((size_t) & (from_desc->buffer), nbytes);
+        float* data_str = (float*)(to->data);
+        for (size_t i = 0; i < nbytes / sizeof(float); i++) {
+          std::cout << mydata[i] << std::endl;
+          data_str[i] = mydata[i];
+        }
+      }
+#else
         OPENCL_CALL(clEnqueueReadBuffer(
             this->GetQueue(from->device), from_desc->buffer, CL_FALSE, from->byte_offset, nbytes,
             static_cast<char*>(to->data) + to->byte_offset, 0, nullptr, nullptr));
-        break;
+#endif
+      break;
       case cl::BufferDescriptor::MemoryLayout::kImage2DActivation:
       case cl::BufferDescriptor::MemoryLayout::kImage2DWeight:
       case cl::BufferDescriptor::MemoryLayout::kImage2DNHWC:
@@ -343,18 +337,17 @@ void OpenCLWorkspace::CopyDataFromTo(DLTensor* from, DLTensor* to, TVMStreamHand
     auto* to_desc = static_cast<cl::BufferDescriptor*>(to->data);
     switch (to_desc->layout) {
       case cl::BufferDescriptor::MemoryLayout::kBuffer1D:
-        LOG(WARNING) << to_desc->hash << ": " << nbytes / sizeof(float);
-        {
-          tvm::sharedGPU::Client* client = new tvm::sharedGPU::Client();
-          client->SendBufferData(to_desc->hash, from->data, nbytes);
-          client->CloseConnection();
-          if (nbytes / sizeof(float) == 128)
-            showData(static_cast<float*>(from->data), nbytes / sizeof(float));
-        }
+#ifdef WITH_GRPC
+      {
+        tvm::vortexGRPC::Client* client = tvm::vortexGRPC::Client::getInstance();
+        client->SendBufferData((size_t) & (to_desc->buffer), (float*)from->data, nbytes);
+      }
+#else
         OPENCL_CALL(clEnqueueWriteBuffer(
             this->GetQueue(to->device), to_desc->buffer, CL_FALSE, to->byte_offset, nbytes,
             static_cast<const char*>(from->data) + from->byte_offset, 0, nullptr, nullptr));
-        break;
+#endif
+      break;
       case cl::BufferDescriptor::MemoryLayout::kImage2DActivation:
       case cl::BufferDescriptor::MemoryLayout::kImage2DWeight:
       case cl::BufferDescriptor::MemoryLayout::kImage2DNHWC:

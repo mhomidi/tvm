@@ -28,6 +28,7 @@ Notice that you need to build TVM with cuda and llvm enabled.
 
 # sphinx_gallery_start_ignore
 from tvm import testing
+import time
 
 testing.utils.install_request_hook(depth=3)
 # sphinx_gallery_end_ignore
@@ -125,6 +126,7 @@ module.set_input("data", data)
 print("\n################# Before Run #################")
 module.run()
 # get output
+time.sleep(3)
 print("\n################# Before Output ################")
 out = module.get_output(0, tvm.nd.empty(out_shape)).numpy()
 

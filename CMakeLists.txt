@@ -402,6 +402,56 @@ if(USE_VM_PROFILER)
   set(USE_PROFILER ON)
 endif()
 
+if (USE_GRPC)
+
+  find_package(protobuf CONFIG REQUIRED)
+  message(STATUS "Using protobuf ${Protobuf_VERSION}")
+  find_package(gRPC CONFIG REQUIRED)
+  message(STATUS "Using gRPC ${gRPC_VERSION}")
+  find_package(Threads)
+
+
+  set(protobuf_MODULE_COMPATIBLE TRUE)
+  set(_PROTOBUF_LIBPROTOBUF protobuf::libprotobuf)
+  set(_REFLECTION gRPC::grpc++_reflection)
+
+  set(_PROTOBUF_PROTOC $<TARGET_FILE:protobuf::protoc>)
+
+  set(_GRPC_CPP_PLUGIN_EXECUTABLE $<TARGET_FILE:gRPC::grpc_cpp_plugin>)
+
+  # # Include generated *.pb.h files
+  include_directories("${CMAKE_CURRENT_BINARY_DIR}/src/runtime/grpc")
+
+  #
+  # Protobuf/Grpc source files
+  #
+
+  set(PROTO_FILES
+      src/runtime/grpc/service.proto
+  )
+
+  # Add Library target with protobuf sources
+  add_library(myproto ${PROTO_FILES})
+  target_link_libraries(myproto
+  PUBLIC
+      protobuf::libprotobuf
+      gRPC::grpc
+      gRPC::grpc++
+  )
+  target_include_directories(myproto PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+
+  include_directories(${PROTOBUF_INCLUDE_DIRS})
+  include_directories(${CMAKE_CURRENT_BINARY_DIR})
+  
+  get_target_property(grpc_cpp_plugin_location gRPC::grpc_cpp_plugin LOCATION)
+  protobuf_generate(TARGET myproto LANGUAGE cpp)
+  protobuf_generate(TARGET myproto LANGUAGE grpc GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc PLUGIN "protoc-gen-grpc=${grpc_cpp_plugin_location}")
+
+  list(APPEND TVM_RUNTIME_LINKER_LIBS myproto)
+  list(APPEND TVM_RUNTIME_LINKER_LIBS protobuf::libprotobuf gRPC::grpc gRPC::grpc++)
+
+endif(USE_GRPC)
+
 if(USE_PROFILER)
   message(STATUS "Build with profiler...")
 

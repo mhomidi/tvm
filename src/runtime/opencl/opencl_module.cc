@@ -30,17 +30,9 @@
 #include <unordered_map>
 #include <vector>
 
+#include "../grpc/vortex_grpc_client.h"
 #include "../source_utils.h"
 #include "opencl_common.h"
-
-#include "../shared_gpu/opencl_client.h"
-
-void writeToFile(std::string kernel_source) {
-  std::ofstream out;
-  out.open("/tmp/kernels.cl", std::ios::app);
-  out << std::endl << kernel_source << std::endl;
-  out.close();
-}
 
 namespace tvm {
 namespace runtime {
@@ -84,36 +76,26 @@ class OpenCLWrappedFunc {
       } else {
         arg = void_args[i];
       }
-      // cl_mem_object_type  argSize;
-      // size_t argSizeRet;
-      // OPENCL_CALL(clGetMemObjectInfo(static_cast<cl::BufferDescriptor*>(void_args[i])->buffer,
-      //                   CL_MEM_TYPE,
-      //                   sizeof(cl_mem_object_type),
-      //                   &argSize,
-      //                   &argSizeRet));
       OPENCL_CALL(clSetKernelArg(kernel, i, arg_size_[i], arg));
-      LOG(WARNING) << (size_t)arg;
 
-      {
-        tvm::sharedGPU::Client* client = new tvm::sharedGPU::Client();
-        client->SendBufferSet(func_name_, (size_t)(static_cast<cl::BufferDescriptor*>(void_args[i])->buffer));
-        client->CloseConnection();
-      }
+#ifdef WITH_GRPC
+      tvm::vortexGRPC::Client* client = tvm::vortexGRPC::Client::getInstance();
+      client->SetBuffer(func_name_,
+                        (size_t)(static_cast<cl::BufferDescriptor*>(void_args[i])->buffer));
+#endif
     }
-    cl_command_queue queue = w_->GetQueue(t->device);
     ThreadWorkLoad wl = launch_param_config_.Extract(args);
     cl_uint work_dim = static_cast<cl_uint>(launch_param_config_.work_dim());
     for (cl_uint i = 0; i < work_dim; ++i) {
       wl.work_size[i] *= wl.work_size[i + 3];
     }
-    // LOG(WARNING) << work_dim << " " << wl.work_size[0];
-    // launch kernel
-    {
-        tvm::sharedGPU::Client* client = new tvm::sharedGPU::Client();
-        client->SendWorkDim(func_name_, work_dim);
-        client->SendGlobalWorkSize(func_name_, wl.work_size);
-        client->CloseConnection();
-    }
+
+#ifdef WITH_GRPC
+    tvm::vortexGRPC::Client* client = tvm::vortexGRPC::Client::getInstance();
+    client->SendThreadData(func_name_, wl.work_size, (size_t)work_dim);
+    client->EnqueueKernel(func_name_);
+#else
+    cl_command_queue queue = w_->GetQueue(t->device);
     if (w_->IsProfiling(t->device)) {
       w_->GetEventQueue(t->device).resize(w_->GetEventQueue(t->device).size() + 1);
       OPENCL_CALL(clEnqueueNDRangeKernel(queue, kernel, work_dim, nullptr, wl.work_size,
@@ -123,6 +105,7 @@ class OpenCLWrappedFunc {
       OPENCL_CALL(clEnqueueNDRangeKernel(queue, kernel, work_dim, nullptr, wl.work_size,
                                          wl.work_size + 3, 0, nullptr, nullptr));
     }
+#endif
   }
 
  private:
@@ -260,21 +243,10 @@ cl_kernel OpenCLModuleNode::InstallKernel(cl::OpenCLWorkspace* w, cl::OpenCLThre
       size_t len = parsed_kernels_[func_name].length();
       cl_int err;
       programs_[func_name][device_id] = clCreateProgramWithSource(w->context, 1, &s, &len, &err);
-      // LOG(WARNING) << std::endl
-      //              << std::endl
-      //              << "#############" << func_name << "###########" << std::endl
-      //              << s << std::endl
-      //              << std::endl
-      //              << "##############" << std::endl;
-      // writeToFile(parsed_kernels_[func_name]);
-    // if (func_name == "tvmgen_default_fused_nn_softmax_kernel2")
-    {
-      LOG(WARNING) << func_name << ": " << parsed_kernels_[func_name].size();
-      tvm::sharedGPU::Client* client = new tvm::sharedGPU::Client();
+#ifdef WITH_GRPC
+      tvm::vortexGRPC::Client* client = tvm::vortexGRPC::Client::getInstance();
       client->SendKernel(func_name, parsed_kernels_[func_name]);
-      client->CloseConnection();
-    }
-
+#endif
       OPENCL_CHECK_ERROR(err);
     } else if (fmt_ == "xclbin" || fmt_ == "awsxclbin" || fmt_ == "aocx") {
       const unsigned char* s = (const unsigned char*)data_.c_str();
