@@ -97,26 +97,15 @@ void Client::SendThreadData(std::string kernelName, size_t* workSizes, size_t di
   }
   writer->WritesDone();
   grpc::Status status = writer->Finish();
-  if (!status.ok()) throw 1;
-
+  if (!status.ok()) {
+    throw 1;
+  }
   tvmgrpc::WorkDim req;
-
   req.set_kernel_name(kernelName);
   req.set_dim(dim);
-
   grpc::ClientContext context2;
   context2.AddMetadata(CLIENT_ID, grpc::to_string(this->userId));
   status = this->stub->SetKernelWorkDim(&context2, req, &res);
-}
-
-void Client::Exec(size_t bufferId, size_t size) {
-  tvmgrpc::ExecMessage req;
-  tvmgrpc::Response res;
-  req.set_buffer_id(bufferId);
-  req.set_size(size);
-  grpc::ClientContext context;
-  context.AddMetadata(CLIENT_ID, grpc::to_string(this->userId));
-  grpc::Status status = this->stub->Exec(&context, req, &res);
 }
 
 void Client::EnqueueKernel(std::string kernelName) {
@@ -136,7 +125,6 @@ std::vector<float> Client::GetBufferData(size_t bufferId, size_t size) {
   grpc::ClientContext context;
   context.AddMetadata(CLIENT_ID, grpc::to_string(this->userId));
   std::vector<float> data;
-
   std::unique_ptr<grpc::ClientReader<tvmgrpc::BufferData>> reader(
       this->stub->GetBufferData(&context, req));
   while (reader->Read(&res)) {
@@ -146,10 +134,6 @@ std::vector<float> Client::GetBufferData(size_t bufferId, size_t size) {
   if (!status.ok()) {
     throw 1;
   }
-  // for (size_t i = 0; i < data.size(); i++) {
-  //   std::cout << data.data()[i] << std::endl;
-  // }
-
   return data;
 }
 

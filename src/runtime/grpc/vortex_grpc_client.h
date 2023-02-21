@@ -15,7 +15,6 @@ class Client {
   void SetBuffer(std::string kernelName, size_t bufferId);
   void SendThreadData(std::string kernelName, size_t* workSizes, size_t dim);
   void EnqueueKernel(std::string kernelName);
-  void Exec(size_t bufferId, size_t size);
   std::vector<float> GetBufferData(size_t bufferId, size_t size);
 
  private:
