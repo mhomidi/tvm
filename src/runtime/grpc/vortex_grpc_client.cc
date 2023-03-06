@@ -16,7 +16,7 @@ Client::Client() {
   this->setUserId();
 }
 
-Client* Client::getInstance() {
+Client* Client::GetInstance() {
   if (instance == nullptr) {
     return instance = new Client();
   }
@@ -135,6 +135,16 @@ std::vector<float> Client::GetBufferData(size_t bufferId, size_t size) {
     throw 1;
   }
   return data;
+}
+
+void Client::SendKernelDependency(std::string curr_kernel, std::string pred_kernel) {
+  tvmgrpc::KernelDependency req;
+  tvmgrpc::Response res;
+  req.set_curr(curr_kernel);
+  req.set_pred(pred_kernel);
+  grpc::ClientContext context;
+  context.AddMetadata(CLIENT_ID, grpc::to_string(this->userId));
+  grpc::Status status = this->stub->SetKernelDependency(&context, req, &res);
 }
 
 }  // namespace vortexGRPC

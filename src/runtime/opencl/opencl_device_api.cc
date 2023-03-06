@@ -208,7 +208,7 @@ void* OpenCLWorkspace::AllocDataSpace(Device dev, size_t size, size_t alignment,
   desc->layout = cl::BufferDescriptor::MemoryLayout::kBuffer1D;
   OPENCL_CHECK_ERROR(err_code);
 #ifdef WITH_GRPC
-  tvm::vortexGRPC::Client* client = tvm::vortexGRPC::Client::getInstance();
+  tvm::vortexGRPC::Client* client = tvm::vortexGRPC::Client::GetInstance();
   client->CreateBuffer((size_t) & (desc->buffer), size);
 #endif
   return desc;
@@ -305,7 +305,7 @@ void OpenCLWorkspace::CopyDataFromTo(DLTensor* from, DLTensor* to, TVMStreamHand
       case cl::BufferDescriptor::MemoryLayout::kBuffer1D:
 #ifdef WITH_GRPC
       {
-        tvm::vortexGRPC::Client* client = tvm::vortexGRPC::Client::getInstance();
+        tvm::vortexGRPC::Client* client = tvm::vortexGRPC::Client::GetInstance();
         std::vector<float> mydata = client->GetBufferData((size_t) & (from_desc->buffer), nbytes);
         float* data_str = (float*)(to->data);
         for (size_t i = 0; i < nbytes / sizeof(float); i++) {
@@ -339,7 +339,7 @@ void OpenCLWorkspace::CopyDataFromTo(DLTensor* from, DLTensor* to, TVMStreamHand
       case cl::BufferDescriptor::MemoryLayout::kBuffer1D:
 #ifdef WITH_GRPC
       {
-        tvm::vortexGRPC::Client* client = tvm::vortexGRPC::Client::getInstance();
+        tvm::vortexGRPC::Client* client = tvm::vortexGRPC::Client::GetInstance();
         client->SendBufferData((size_t) & (to_desc->buffer), (float*)from->data, nbytes);
       }
 #else

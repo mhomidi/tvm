@@ -2,7 +2,9 @@ syntax = "proto3";
 
 package tvmgrpc;
 
-message Response { int32 status = 1; }
+message Response {
+  int32 status = 1;
+}
 
 message KernelSource {
   string name = 1;
@@ -35,7 +37,14 @@ message BufferSet {
   int64 buffer_id = 2;
 }
 
-message UserData { int64 user_id = 1; }
+message UserData {
+  int64 user_id = 1;
+}
+
+message KernelDependency {
+  string curr = 1;
+  string pred = 2;
+}
 
 message EmptyMessage {}
 
@@ -57,4 +66,6 @@ service VortexService {
   rpc SetKernelReadyToExecute(KernelSource) returns (Response);
 
   rpc GetBufferData(BufferCreation) returns (stream BufferData);
+
+  rpc SetKernelDependency(KernelDependency) returns (Response);
 }

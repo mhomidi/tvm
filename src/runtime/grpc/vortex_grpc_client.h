@@ -8,7 +8,7 @@ namespace vortexGRPC {
 
 class Client {
  public:
-  static Client* getInstance();
+  static Client* GetInstance();
   void SendKernel(std::string kernelName, std::string src);
   void CreateBuffer(size_t bufferId, size_t size);
   void SendBufferData(size_t bufferId, float* data, size_t size);
@@ -16,6 +16,7 @@ class Client {
   void SendThreadData(std::string kernelName, size_t* workSizes, size_t dim);
   void EnqueueKernel(std::string kernelName);
   std::vector<float> GetBufferData(size_t bufferId, size_t size);
+  void SendKernelDependency(std::string curr_kernel, std::string pred_kernel);
 
  private:
   Client();

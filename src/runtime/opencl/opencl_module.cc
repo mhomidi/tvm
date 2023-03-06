@@ -79,7 +79,7 @@ class OpenCLWrappedFunc {
       OPENCL_CALL(clSetKernelArg(kernel, i, arg_size_[i], arg));
 
 #ifdef WITH_GRPC
-      tvm::vortexGRPC::Client* client = tvm::vortexGRPC::Client::getInstance();
+      tvm::vortexGRPC::Client* client = tvm::vortexGRPC::Client::GetInstance();
       client->SetBuffer(func_name_,
                         (size_t)(static_cast<cl::BufferDescriptor*>(void_args[i])->buffer));
 #endif
@@ -91,7 +91,7 @@ class OpenCLWrappedFunc {
     }
 
 #ifdef WITH_GRPC
-    tvm::vortexGRPC::Client* client = tvm::vortexGRPC::Client::getInstance();
+    tvm::vortexGRPC::Client* client = tvm::vortexGRPC::Client::GetInstance();
     client->SendThreadData(func_name_, wl.work_size, (size_t)work_dim);
     client->EnqueueKernel(func_name_);
 #else
@@ -244,7 +244,7 @@ cl_kernel OpenCLModuleNode::InstallKernel(cl::OpenCLWorkspace* w, cl::OpenCLThre
       cl_int err;
       programs_[func_name][device_id] = clCreateProgramWithSource(w->context, 1, &s, &len, &err);
 #ifdef WITH_GRPC
-      tvm::vortexGRPC::Client* client = tvm::vortexGRPC::Client::getInstance();
+      tvm::vortexGRPC::Client* client = tvm::vortexGRPC::Client::GetInstance();
       client->SendKernel(func_name, parsed_kernels_[func_name]);
 #endif
       OPENCL_CHECK_ERROR(err);
