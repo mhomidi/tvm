@@ -27,7 +27,10 @@
 
 #include <sstream>
 
+#ifdef WITH_GRPC
 #include "../grpc/vortex_grpc_client.h"
+#endif
+
 #include "../shared_gpu/opencl_client.h"
 #include "opencl_common.h"
 

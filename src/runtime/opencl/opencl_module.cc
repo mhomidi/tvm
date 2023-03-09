@@ -30,7 +30,10 @@
 #include <unordered_map>
 #include <vector>
 
+#ifdef WITH_GRPC
 #include "../grpc/vortex_grpc_client.h"
+#endif
+
 #include "../source_utils.h"
 #include "opencl_common.h"
 

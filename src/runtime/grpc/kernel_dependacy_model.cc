@@ -1,6 +1,8 @@
 #include "kernel_dependacy_model.h"
 
+#ifdef WITH_GRPC
 #include "vortex_grpc_client.h"
+#endif
 
 KernelDependancyModel* KernelDependancyModel::instance = nullptr;
 
