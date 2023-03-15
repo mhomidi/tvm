@@ -42,6 +42,9 @@
 #include <vector>
 
 #include "../file_utils.h"
+#ifdef WITH_GRPC
+#include "../grpc/kernel_dependency_model.h"
+#endif
 #include "../texture.h"
 
 namespace tvm {
@@ -498,6 +501,13 @@ void GraphExecutor::SetupOpExecs() {
 
     for (size_t i = 0; i < inode.inputs.size(); i++) {
       uint32_t input_eid = this->entry_id(inode.inputs[i]);
+#ifdef WITH_GRPC
+      if (nodes_[input_eid].op_type != "null" && (nodes_[input_eid].param.func_name != "__nop" ||
+                                                  nodes_[input_eid].param.func_name != "__copy")) {
+        tvm::vortexGRPC::KernelDependencyModel::GetInstance()->SetNodeDependency(
+            inode.name, nodes_[input_eid].name);
+      }
+#endif
       // check if op input is model input
       if (input_node_eids.count(input_eid) > 0) {
         input_dltensors_[input_eid].push_back(

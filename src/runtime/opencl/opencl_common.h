@@ -397,7 +397,9 @@ class OpenCLModuleNode : public ModuleNode {
   };
   explicit OpenCLModuleNode(std::string data, std::string fmt,
                             std::unordered_map<std::string, FunctionInfo> fmap, std::string source)
-      : data_(data), fmt_(fmt), fmap_(fmap), source_(source) {}
+      : data_(data), fmt_(fmt), fmap_(fmap), source_(source) {
+    std::cout << "OpenCL Module constr" << std::endl;
+  }
   // destructor
   ~OpenCLModuleNode();
 

@@ -31,6 +31,7 @@
 #include <vector>
 
 #ifdef WITH_GRPC
+#include "../grpc/kernel_dependency_model.h"
 #include "../grpc/vortex_grpc_client.h"
 #endif
 
@@ -163,7 +164,6 @@ PackedFunc OpenCLModuleNode::GetFunction(const std::string& name,
   const FunctionInfo& info = it->second;
   OpenCLWrappedFunc f;
   std::vector<size_t> arg_size(info.arg_types.size());
-  // LOG(WARNING) << "Kernel name in OpenCLModuleNode class: " << name;
   for (size_t i = 0; i < info.arg_types.size(); ++i) {
     DLDataType t = info.arg_types[i];
     ICHECK_EQ(t.lanes, 1U);
@@ -246,10 +246,21 @@ cl_kernel OpenCLModuleNode::InstallKernel(cl::OpenCLWorkspace* w, cl::OpenCLThre
       size_t len = parsed_kernels_[func_name].length();
       cl_int err;
       programs_[func_name][device_id] = clCreateProgramWithSource(w->context, 1, &s, &len, &err);
+
 #ifdef WITH_GRPC
+      tvm::vortexGRPC::KernelDependencyModel* kernel_dep_mode =
+          tvm::vortexGRPC::KernelDependencyModel::GetInstance();
+      kernel_dep_mode->SetLastNodeKernel(func_name);
+      std::set<std::string> kernel_deps = kernel_dep_mode->GetKernelDependencies(func_name);
+
       tvm::vortexGRPC::Client* client = tvm::vortexGRPC::Client::GetInstance();
       client->SendKernel(func_name, parsed_kernels_[func_name]);
+      for (std::set<std::string>::iterator iter = kernel_deps.begin(); iter != kernel_deps.end();
+           iter++) {
+        client->SendKernelDependency(func_name, *iter);
+      }
 #endif
+
       OPENCL_CHECK_ERROR(err);
     } else if (fmt_ == "xclbin" || fmt_ == "awsxclbin" || fmt_ == "aocx") {
       const unsigned char* s = (const unsigned char*)data_.c_str();
